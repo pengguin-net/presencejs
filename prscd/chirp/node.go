@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/streadway/amqp"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yomorun/psig"
 	"github.com/yomorun/yomo"
@@ -29,28 +30,41 @@ var AuthUserAndGetYoMoCredential func(publicKey string) (appID, credential strin
 // GetOrCreateRealm get or create realm by appID, if realm is created, it will connect to yomo zipper with credential.
 func GetOrCreateRealm(appID string, credential string) (realm *node) {
 	log.Debug("get or create realm: %s", appID)
-	res, ok := allRealms.LoadOrStore(appID, &node{
+	res, loaded := allRealms.LoadOrStore(appID, &node{
 		MeshID: os.Getenv("MESH_ID"),
 		id:     appID,
 	})
 
-	if !ok {
+	if !loaded {
 		log.Debug("create realm: %s", appID)
 		// connect to yomo zipper when created
 		res.(*node).ConnectToYoMo(credential)
+
+		conn, err := amqp.Dial(os.Getenv("RABBITMQ_CONN_STRING"))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		ch, err := conn.Channel()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		res.(*node).rabbitMQClient = ch
 	}
 
 	return res.(*node)
 }
 
 type node struct {
-	id     string              // id is the unique id of this node
-	cdic   sync.Map            // all channels on this node
-	pdic   sync.Map            // all peers on this node
-	Env    string              // Env describes the environment of this node, e.g. "dev", "prod"
-	MeshID string              // MeshID describes the id of this node
-	sndr   yomo.Source         // the yomo source used to send data to the geo-distributed network which built by yomo
-	rcvr   yomo.StreamFunction // the yomo stream function used to receive data from the geo-distributed network which built by yomo
+	id             string              // id is the unique id of this node
+	cdic           sync.Map            // all channels on this node
+	pdic           sync.Map            // all peers on this node
+	Env            string              // Env describes the environment of this node, e.g. "dev", "prod"
+	MeshID         string              // MeshID describes the id of this node
+	sndr           yomo.Source         // the yomo source used to send data to the geo-distributed network which built by yomo
+	rcvr           yomo.StreamFunction // the yomo stream function used to receive data from the geo-distributed network which built by yomo
+	rabbitMQClient *amqp.Channel
 }
 
 // AddPeer add peer to channel named `cid` on this node.

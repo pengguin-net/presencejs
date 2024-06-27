@@ -7,6 +7,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/quic-go/qpack v0.4.0
 	github.com/quic-go/quic-go v0.39.0
+	github.com/streadway/amqp v1.1.0
 	github.com/vmihailenco/msgpack/v5 v5.4.0
 	github.com/yomorun/psig v1.0.0
 	github.com/yomorun/yomo v1.16.2

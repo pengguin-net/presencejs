@@ -1,8 +1,11 @@
 package chirp
 
 import (
+	"encoding/json"
 	"errors"
+	amqp "github.com/streadway/amqp"
 	"io"
+	"strconv"
 	"sync"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -73,6 +76,42 @@ func (p *Peer) Leave(channelName string) {
 	}
 
 	c.RemovePeer(p)
+	cid, err := strconv.Atoi(p.Cid)
+	if err != nil {
+		log.Error("Failed to convert p.Cid to integer: %v", err)
+		return
+	}
+	message := struct {
+		UserID      int    `json:"user_id"`
+		ChannelName string `json:"channel_name"`
+		UserIP      string `json:"user_ip"`
+		Action      string `json:"action"`
+	}{
+		UserID:      cid,
+		ChannelName: channelName,
+		UserIP:      p.Sid,
+		Action:      "leave",
+	}
+	messageBody, err := json.Marshal(message)
+	if err != nil {
+		log.Error("Failed to marshal the message: %v", err)
+		return
+	}
+
+	queueName := "usertrack"
+	err = p.realm.rabbitMQClient.Publish(
+		"",
+		queueName,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        messageBody,
+		},
+	)
+	if err != nil {
+		log.Error("Failed to publish a message to RabbitMQ: %v", err)
+	}
 
 	// Notify others on this channel that this peer has left
 	c.Broadcast(NewSigPeerOffline(channelName, p))
