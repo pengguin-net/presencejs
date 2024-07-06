@@ -57,6 +57,7 @@ export interface IPresence {
   leaveChannel: (channelId: string) => void;
   on: (status: ConnectionStatus, cb: ConnectionStatusCallback) => void;
   status: ConnectionStatus;
+  disconnect: () => void;
 }
 
 type Peers = State[];

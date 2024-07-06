@@ -199,6 +199,10 @@ export class Presence implements IPresence {
     }
   }
 
+  disconnect() {
+    this.#conn.close();
+  }
+
   // re-join channel after reconnected
   #rejoinChannels() {
     this.#logger.log('rejoin after connect', this.#channels);
